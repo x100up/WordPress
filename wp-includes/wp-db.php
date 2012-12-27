@@ -88,7 +88,7 @@ class wpdb {
 	/**
 	 * Count of rows returned by previous query
 	 *
-	 * @since 1.2.0
+	 * @since 0.71
 	 * @access private
 	 * @var int
 	 */
@@ -113,9 +113,9 @@ class wpdb {
 	var $insert_id = 0;
 
 	/**
-	 * Saved result of the last query made
+	 * Last query made
 	 *
-	 * @since 1.2.0
+	 * @since 0.71
 	 * @access private
 	 * @var array
 	 */
@@ -124,16 +124,25 @@ class wpdb {
 	/**
 	 * Results of the last query made
 	 *
-	 * @since 1.0.0
+	 * @since 0.71
 	 * @access private
 	 * @var array|null
 	 */
 	var $last_result;
 
 	/**
+	 * MySQL result, which is either a resource or boolean.
+	 *
+	 * @since 0.71
+	 * @access protected
+	 * @var mixed
+	 */
+	protected $result;
+
+	/**
 	 * Saved info on the table column
 	 *
-	 * @since 1.2.0
+	 * @since 0.71
 	 * @access protected
 	 * @var array
 	 */
@@ -155,7 +164,7 @@ class wpdb {
 	 * in a single database. The second reason is for possible
 	 * security precautions.
 	 *
-	 * @since 0.71
+	 * @since 2.5.0
 	 * @access private
 	 * @var string
 	 */
@@ -164,7 +173,7 @@ class wpdb {
 	/**
 	 * Whether the database queries are ready to start executing.
 	 *
-	 * @since 2.5.0
+	 * @since 2.3.2
 	 * @access private
 	 * @var bool
 	 */
@@ -453,7 +462,7 @@ class wpdb {
 	/**
 	 * Database Password
 	 *
-	 * @since 3.5.0
+	 * @since 3.1.0
 	 * @access protected
 	 * @var string
 	 */
@@ -462,7 +471,7 @@ class wpdb {
 	/**
 	 * Database Name
 	 *
-	 * @since 3.5.0
+	 * @since 3.1.0
 	 * @access protected
 	 * @var string
 	 */
@@ -471,7 +480,7 @@ class wpdb {
 	/**
 	 * Database Host
 	 *
-	 * @since 3.5.0
+	 * @since 3.1.0
 	 * @access protected
 	 * @var string
 	 */
@@ -480,7 +489,7 @@ class wpdb {
 	/**
 	 * Database Handle
 	 *
-	 * @since 3.5.0
+	 * @since 0.71
 	 * @access protected
 	 * @var string
 	 */
@@ -525,7 +534,7 @@ class wpdb {
 	 * @param string $dbhost MySQL database host
 	 */
 	function __construct( $dbuser, $dbpassword, $dbname, $dbhost ) {
-		register_shutdown_function( array( &$this, '__destruct' ) );
+		register_shutdown_function( array( $this, '__destruct' ) );
 
 		if ( WP_DEBUG )
 			$this->show_errors();
@@ -556,14 +565,50 @@ class wpdb {
 	 *
 	 * @since 3.5.0
 	 *
-	 * @param string $var The private member to get, and optionally process
+	 * @param string $name The private member to get, and optionally process
 	 * @return mixed The private member
 	 */
-	function __get( $var ) {
-		if ( 'col_info' == $var )
+	function __get( $name ) {
+		if ( 'col_info' == $name )
 			$this->load_col_info();
 
-		return $this->$var;
+		return $this->$name;
+	}
+
+	/**
+	 * Magic function, for backwards compatibility
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param string $name  The private member to set
+	 * @param mixed  $value The value to set
+	 */
+	function __set( $name, $value ) {
+		$this->$name = $value;
+	}
+
+	/**
+	 * Magic function, for backwards compatibility
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param string $name  The private member to check
+	 *
+	 * @return bool If the member is set or not
+	 */
+	function __isset( $name ) {
+		return isset( $this->$name );
+	}
+
+	/**
+	 * Magic function, for backwards compatibility
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param string $name  The private member to unset
+	 */
+	function __unset( $name ) {
+		unset( $this->$name );
 	}
 
 	/**
@@ -942,7 +987,7 @@ class wpdb {
 	 * @return null|false|string Sanitized query string, null if there is no query, false if there is an error and string
 	 * 	if there was something to prepare
 	 */
-	function prepare( $query = null ) { // ( $query, *$args )
+	function prepare( $query, $args ) {
 		if ( is_null( $query ) )
 			return;
 
@@ -953,9 +998,9 @@ class wpdb {
 			$args = $args[0];
 		$query = str_replace( "'%s'", '%s', $query ); // in case someone mistakenly already singlequoted it
 		$query = str_replace( '"%s"', '%s', $query ); // doublequote unquoting
-		$query = str_replace( '%f' , '%F', $query ); // Force floats to be locale unaware
+		$query = preg_replace( '|(?<!%)%f|' , '%F', $query ); // Force floats to be locale unaware
 		$query = preg_replace( '|(?<!%)%s|', "'%s'", $query ); // quote the strings, avoiding escaped strings like %%s
-		array_walk( $args, array( &$this, 'escape_by_ref' ) );
+		array_walk( $args, array( $this, 'escape_by_ref' ) );
 		return @vsprintf( $query, $args );
 	}
 
@@ -985,11 +1030,7 @@ class wpdb {
 		else
 			$error_str = sprintf( __( 'WordPress database error %1$s for query %2$s' ), $str, $this->last_query );
 
-		if ( function_exists( 'error_log' )
-			&& ( $log_file = @ini_get( 'error_log' ) )
-			&& ( 'syslog' == $log_file || @is_writable( $log_file ) )
-			)
-			@error_log( $error_str );
+		error_log( $error_str );
 
 		// Are we showing errors?
 		if ( ! $this->show_errors )
@@ -1076,7 +1117,9 @@ class wpdb {
 		$this->last_result = array();
 		$this->col_info    = null;
 		$this->last_query  = null;
-		@mysql_free_result( $this->result );
+
+		if ( is_resource( $this->result ) )
+			mysql_free_result( $this->result );
 	}
 
 	/**
@@ -1088,10 +1131,13 @@ class wpdb {
 
 		$this->is_mysql = true;
 
+		$new_link = defined( 'MYSQL_NEW_LINK' ) ? MYSQL_NEW_LINK : true;
+		$client_flags = defined( 'MYSQL_CLIENT_FLAGS' ) ? MYSQL_CLIENT_FLAGS : 0;
+
 		if ( WP_DEBUG ) {
-			$this->dbh = mysql_connect( $this->dbhost, $this->dbuser, $this->dbpassword, true );
+			$this->dbh = mysql_connect( $this->dbhost, $this->dbuser, $this->dbpassword, $new_link, $client_flags );
 		} else {
-			$this->dbh = @mysql_connect( $this->dbhost, $this->dbuser, $this->dbpassword, true );
+			$this->dbh = @mysql_connect( $this->dbhost, $this->dbuser, $this->dbpassword, $new_link, $client_flags );
 		}
 
 		if ( !$this->dbh ) {
@@ -1571,7 +1617,7 @@ class wpdb {
 	/**
 	 * Wraps errors in a nice header and footer and dies.
 	 *
-	 * Will not die if wpdb::$show_errors is true
+	 * Will not die if wpdb::$show_errors is false.
 	 *
 	 * @since 1.5.0
 	 *

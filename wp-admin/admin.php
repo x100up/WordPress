@@ -29,6 +29,8 @@ if ( isset($_GET['import']) && !defined('WP_LOAD_IMPORTERS') )
 
 require_once(dirname(dirname(__FILE__)) . '/wp-load.php');
 
+nocache_headers();
+
 if ( get_option('db_upgraded') ) {
 	flush_rewrite_rules();
 	update_option( 'db_upgraded',  false );
@@ -66,8 +68,6 @@ require_once(ABSPATH . 'wp-admin/includes/admin.php');
 
 auth_redirect();
 
-nocache_headers();
-
 // Schedule trash collection
 if ( !wp_next_scheduled('wp_scheduled_delete') && !defined('WP_INSTALLING') )
 	wp_schedule_event(time(), 'daily', 'wp_scheduled_delete');
@@ -80,7 +80,6 @@ $time_format = get_option('time_format');
 wp_reset_vars(array('profile', 'redirect', 'redirect_url', 'a', 'text', 'trackback', 'pingback'));
 
 wp_enqueue_script( 'common' );
-wp_enqueue_script( 'jquery-color' );
 
 $editing = false;
 

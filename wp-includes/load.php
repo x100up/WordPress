@@ -105,12 +105,12 @@ function wp_check_php_mysql_versions() {
 	$php_version = phpversion();
 	if ( version_compare( $required_php_version, $php_version, '>' ) ) {
 		wp_load_translations_early();
-		wp_die( sprintf( __( 'Your server is running PHP version %1$s but WordPress %2$s requires at least %3$s.' ), $php_version, $wp_version, $required_php_version ) );
+		die( sprintf( __( 'Your server is running PHP version %1$s but WordPress %2$s requires at least %3$s.' ), $php_version, $wp_version, $required_php_version ) );
 	}
 
 	if ( ! extension_loaded( 'mysql' ) && ! file_exists( WP_CONTENT_DIR . '/db.php' ) ) {
 		wp_load_translations_early();
-		wp_die( __( 'Your PHP installation appears to be missing the MySQL extension which is required by WordPress.' ) );
+		die( __( 'Your PHP installation appears to be missing the MySQL extension which is required by WordPress.' ) );
 	}
 }
 
@@ -409,7 +409,7 @@ function wp_start_object_cache() {
 		wp_cache_init();
 
 	if ( function_exists( 'wp_cache_add_global_groups' ) ) {
-		wp_cache_add_global_groups( array( 'users', 'userlogins', 'usermeta', 'user_meta', 'site-transient', 'site-options', 'site-lookup', 'blog-lookup', 'blog-details', 'rss', 'global-posts' ) );
+		wp_cache_add_global_groups( array( 'users', 'userlogins', 'usermeta', 'user_meta', 'site-transient', 'site-options', 'site-lookup', 'blog-lookup', 'blog-details', 'rss', 'global-posts', 'blog-id-cache' ) );
 		wp_cache_add_non_persistent_groups( array( 'comment', 'counts', 'plugins' ) );
 	}
 }
@@ -583,8 +583,11 @@ function wp_clone( $object ) {
  * @return bool True if inside WordPress administration pages.
  */
 function is_admin() {
-	if ( defined( 'WP_ADMIN' ) )
+	if ( isset( $GLOBALS['current_screen'] ) )
+		return $GLOBALS['current_screen']->in_admin();
+	elseif ( defined( 'WP_ADMIN' ) )
 		return WP_ADMIN;
+
 	return false;
 }
 
@@ -599,8 +602,11 @@ function is_admin() {
  * @return bool True if inside WordPress network administration pages.
  */
 function is_blog_admin() {
-	if ( defined( 'WP_BLOG_ADMIN' ) )
+	if ( isset( $GLOBALS['current_screen'] ) )
+		return $GLOBALS['current_screen']->in_admin( 'site' );
+	elseif ( defined( 'WP_BLOG_ADMIN' ) )
 		return WP_BLOG_ADMIN;
+
 	return false;
 }
 
@@ -615,8 +621,11 @@ function is_blog_admin() {
  * @return bool True if inside WordPress network administration pages.
  */
 function is_network_admin() {
-	if ( defined( 'WP_NETWORK_ADMIN' ) )
+	if ( isset( $GLOBALS['current_screen'] ) )
+		return $GLOBALS['current_screen']->in_admin( 'network' );
+	elseif ( defined( 'WP_NETWORK_ADMIN' ) )
 		return WP_NETWORK_ADMIN;
+
 	return false;
 }
 
@@ -631,8 +640,11 @@ function is_network_admin() {
  * @return bool True if inside WordPress user administration pages.
  */
 function is_user_admin() {
-	if ( defined( 'WP_USER_ADMIN' ) )
+	if ( isset( $GLOBALS['current_screen'] ) )
+		return $GLOBALS['current_screen']->in_admin( 'user' );
+	elseif ( defined( 'WP_USER_ADMIN' ) )
 		return WP_USER_ADMIN;
+
 	return false;
 }
 
@@ -697,7 +709,6 @@ function wp_load_translations_early() {
 	require_once ABSPATH . WPINC . '/locale.php';
 
 	// General libraries
-	require_once ABSPATH . WPINC . '/functions.php';
 	require_once ABSPATH . WPINC . '/plugin.php';
 
 	$locales = $locations = array();

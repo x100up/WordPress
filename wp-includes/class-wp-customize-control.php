@@ -351,8 +351,8 @@ class WP_Customize_Color_Control extends WP_Customize_Control {
 	 * @since 3.4.0
 	 */
 	public function enqueue() {
-		wp_enqueue_script( 'farbtastic' );
-		wp_enqueue_style( 'farbtastic' );
+		wp_enqueue_script( 'wp-color-picker' );
+		wp_enqueue_style( 'wp-color-picker' );
 	}
 
 	/**
@@ -372,19 +372,20 @@ class WP_Customize_Color_Control extends WP_Customize_Control {
 	 * @since 3.4.0
 	 */
 	public function render_content() {
+		$this_default = $this->setting->default;
+		$default_attr = '';
+		if ( $this_default ) {
+			if ( false === strpos( $this_default, '#' ) )
+				$this_default = '#' . $this_default;
+			$default_attr = ' data-default-color="' . esc_attr( $this_default ) . '"';
+		}
+		// The input's value gets set by JS. Don't fill it.
 		?>
 		<label>
 			<span class="customize-control-title"><?php echo esc_html( $this->label ); ?></span>
 			<div class="customize-control-content">
-				<div class="dropdown">
-					<div class="dropdown-content">
-						<div class="dropdown-status"></div>
-					</div>
-					<div class="dropdown-arrow"></div>
-				</div>
-				<input class="color-picker-hex" type="text" maxlength="7" placeholder="<?php esc_attr_e('Hex Value'); ?>" />
+				<input class="color-picker-hex" type="text" maxlength="7" placeholder="<?php esc_attr_e( 'Hex Value' ); ?>"<?php echo $default_attr ?> />
 			</div>
-			<div class="farbtastic-placeholder"></div>
 		</label>
 		<?php
 	}
@@ -401,6 +402,7 @@ class WP_Customize_Upload_Control extends WP_Customize_Control {
 	public $type    = 'upload';
 	public $removed = '';
 	public $context;
+	public $extensions = array();
 
 	/**
 	 * Enqueue control related scripts/styles.
@@ -424,6 +426,9 @@ class WP_Customize_Upload_Control extends WP_Customize_Control {
 
 		if ( $this->context )
 			$this->json['context'] = $this->context;
+
+		if ( $this->extensions )
+			$this->json['extensions'] = implode( ',', $this->extensions );
 	}
 
 	/**
@@ -455,6 +460,7 @@ class WP_Customize_Image_Control extends WP_Customize_Upload_Control {
 	public $type = 'image';
 	public $get_url;
 	public $statuses;
+	public $extensions = array( 'jpg', 'jpeg', 'gif', 'png' );
 
 	protected $tabs = array();
 
@@ -520,7 +526,7 @@ class WP_Customize_Image_Control extends WP_Customize_Upload_Control {
 			<span class="customize-control-title"><?php echo esc_html( $this->label ); ?></span>
 
 			<div class="customize-control-content">
-				<div class="dropdown preview-thumbnail">
+				<div class="dropdown preview-thumbnail" tabindex="0">
 					<div class="dropdown-content">
 						<?php if ( empty( $src ) ): ?>
 							<img style="display:none;" />
@@ -536,7 +542,7 @@ class WP_Customize_Image_Control extends WP_Customize_Upload_Control {
 			<div class="library">
 				<ul>
 					<?php foreach ( $this->tabs as $id => $tab ): ?>
-						<li data-customize-tab='<?php echo esc_attr( $id ); ?>'>
+						<li data-customize-tab='<?php echo esc_attr( $id ); ?>' tabindex='0'>
 							<?php echo esc_html( $tab['label'] ); ?>
 						</li>
 					<?php endforeach; ?>
@@ -750,6 +756,8 @@ class WP_Customize_Header_Image_Control extends WP_Customize_Image_Control {
 	 */
 	public function prepare_control() {
 		global $custom_image_header;
+		if ( empty( $custom_image_header ) )
+			return parent::prepare_control();
 
 		// Process default headers and uploaded headers.
 		$custom_image_header->process_default_headers();

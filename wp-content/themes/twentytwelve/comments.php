@@ -11,16 +11,16 @@
  * @subpackage Twenty_Twelve
  * @since Twenty Twelve 1.0
  */
+
+/*
+ * If the current post is protected by a password and
+ * the visitor has not yet entered the password we will
+ * return early without loading the comments.
+ */
+if ( post_password_required() )
+	return;
 ?>
-<?php
-	/*
-	 * If the current post is protected by a password and
-	 * the visitor has not yet entered the password we will
-	 * return early without loading the comments.
-	 */
-	if ( post_password_required() )
-			return;
-?>
+
 <div id="comments" class="comments-area">
 
 	<?php // You can start editing here -- including this comment! ?>
@@ -45,11 +45,15 @@
 		</nav>
 		<?php endif; // check for comment navigation ?>
 
-	<?php // If comments are closed and there are comments, let's leave a little note.
-		elseif ( ! comments_open() && '0' != get_comments_number() && post_type_supports( get_post_type(), 'comments' ) ) :
-	?>
-		<p class="nocomments"><?php _e( 'Comments are closed.', 'twentytwelve' ); ?></p>
-	<?php endif; ?>
+		<?php
+		/* If there are no comments and comments are closed, let's leave a note.
+		 * But we only want the note on posts and pages that had comments in the first place.
+		 */
+		if ( ! comments_open() && get_comments_number() ) : ?>
+		<p class="nocomments"><?php _e( 'Comments are closed.' , 'twentytwelve' ); ?></p>
+		<?php endif; ?>
+
+	<?php endif; // have_comments() ?>
 
 	<?php comment_form(); ?>
 

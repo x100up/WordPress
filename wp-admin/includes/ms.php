@@ -55,13 +55,12 @@ function wpmu_delete_blog( $blog_id, $drop = false ) {
 	global $wpdb, $current_site;
 
 	$switch = false;
-	if ( $blog_id != $wpdb->blogid ) {
+	if ( get_current_blog_id() != $blog_id ) {
 		$switch = true;
 		switch_to_blog( $blog_id );
-		$blog = get_blog_details( $blog_id );
-	} else {
-		$blog = $GLOBALS['current_blog'];
 	}
+
+	$blog = get_blog_details( $blog_id );
 
 	do_action( 'delete_blog', $blog_id, $drop );
 
@@ -81,7 +80,6 @@ function wpmu_delete_blog( $blog_id, $drop = false ) {
 		$drop = false;
 
 	if ( $drop ) {
-
 		$drop_tables = apply_filters( 'wpmu_drop_tables', $wpdb->tables( 'blog' ) );
 
 		foreach ( (array) $drop_tables as $table ) {
@@ -90,7 +88,8 @@ function wpmu_delete_blog( $blog_id, $drop = false ) {
 
 		$wpdb->delete( $wpdb->blogs, array( 'blog_id' => $blog_id ) );
 
-		$dir = apply_filters( 'wpmu_delete_blog_upload_dir', WP_CONTENT_DIR . "/blogs.dir/{$blog_id}/files/", $blog_id );
+		$uploads = wp_upload_dir();
+		$dir = apply_filters( 'wpmu_delete_blog_upload_dir', $uploads['basedir'], $blog_id );
 		$dir = rtrim( $dir, DIRECTORY_SEPARATOR );
 		$top_dir = $dir;
 		$stack = array($dir);
@@ -111,6 +110,7 @@ function wpmu_delete_blog( $blog_id, $drop = false ) {
 					else if ( @is_file( $dir . DIRECTORY_SEPARATOR . $file ) )
 						@unlink( $dir . DIRECTORY_SEPARATOR . $file );
 				}
+				@closedir( $dh );
 			}
 			$index++;
 		}
@@ -120,6 +120,8 @@ function wpmu_delete_blog( $blog_id, $drop = false ) {
 			if ( $dir != $top_dir)
 			@rmdir( $dir );
 		}
+
+		clean_blog_cache( $blog );
 	}
 
 	if ( $switch )
@@ -222,12 +224,12 @@ function send_confirmation_on_profile_email() {
 
 	if ( $current_user->user_email != $_POST['email'] ) {
 		if ( !is_email( $_POST['email'] ) ) {
-			$errors->add( 'user_email', __( "<strong>ERROR</strong>: The e-mail address isn't correct." ), array( 'form-field' => 'email' ) );
+			$errors->add( 'user_email', __( "<strong>ERROR</strong>: The email address isn&#8217;t correct." ), array( 'form-field' => 'email' ) );
 			return;
 		}
 
 		if ( $wpdb->get_var( $wpdb->prepare( "SELECT user_email FROM {$wpdb->users} WHERE user_email=%s", $_POST['email'] ) ) ) {
-			$errors->add( 'user_email', __( "<strong>ERROR</strong>: The e-mail address is already used." ), array( 'form-field' => 'email' ) );
+			$errors->add( 'user_email', __( "<strong>ERROR</strong>: The email address is already used." ), array( 'form-field' => 'email' ) );
 			delete_option( $current_user->ID . '_new_email' );
 			return;
 		}
@@ -272,54 +274,6 @@ function new_user_email_admin_notice() {
 add_action( 'admin_notices', 'new_user_email_admin_notice' );
 
 /**
- * Determines if there is any upload space left in the current blog's quota.
- *
- * @since 3.0.0
- * @return bool True if space is available, false otherwise.
- */
-function is_upload_space_available() {
-	if ( get_site_option( 'upload_space_check_disabled' ) )
-		return true;
-
-	if ( !( $space_allowed = get_upload_space_available() ) )
-		return false;
-
-	return true;
-}
-
-/**
- * @since 3.0.0
- *
- * @return int of upload size limit in bytes
- */
-function upload_size_limit_filter( $size ) {
-	$fileupload_maxk = 1024 * get_site_option( 'fileupload_maxk', 1500 );
-	if ( get_site_option( 'upload_space_check_disabled' ) )
-		return min( $size, $fileupload_maxk );
-
-	return min( $size, $fileupload_maxk, get_upload_space_available() );
-}
-/**
- * Determines if there is any upload space left in the current blog's quota.
- *
- * @since 3.0.0
- *
- * @return int of upload space available in bytes
- */
-function get_upload_space_available() {
-	$space_allowed = get_space_allowed() * 1024 * 1024;
-	if ( get_site_option( 'upload_space_check_disabled' ) )
-		return $space_allowed;
-
-	$space_used = get_space_used() * 1024 * 1024;
-
-	if ( ( $space_allowed - $space_used ) <= 0 )
-		return 0;
-
-	return $space_allowed - $space_used;
-}
-
-/**
  * Check whether a blog has used its allotted upload space.
  *
  * @since MU
@@ -347,41 +301,6 @@ function upload_is_user_over_quota( $echo = true ) {
 }
 
 /**
- * Returns the space used by the current blog.
- *
- * @since 3.5.0
- *
- * @return int Used space in megabytes
- */
-function get_space_used() {
-	// Allow for an alternative way of tracking storage space used
-	$space_used = apply_filters( 'pre_get_space_used', false );
-	if ( false === $space_used )
-		$space_used = get_dirsize( BLOGUPLOADDIR ) / 1024 / 1024;
-
-	return $space_used;
-}
-
-/**
- * Returns the upload quota for the current blog.
- *
- * @since MU
- *
- * @return int Quota in megabytes
- */
-function get_space_allowed() {
-	$space_allowed = get_option( 'blog_upload_space' );
-
-	if ( ! is_numeric( $space_allowed ) )
-		$space_allowed = get_site_option( 'blog_upload_space' );
-
-	if ( empty( $space_allowed ) || ! is_numeric( $space_allowed ) )
-		$space_allowed = 50;
-
-	return $space_allowed;
-}
-
-/**
  * Displays the amount of disk space used by the current blog. Not used in core.
  *
  * @since MU
@@ -402,7 +321,7 @@ function display_space_usage() {
 		$space .= __( 'MB' );
 	}
 	?>
-	<strong><?php printf( __( 'Used: %1s%% of %2s' ), number_format( $percent_used ), $space ); ?></strong>
+	<strong><?php printf( __( 'Used: %1$s%% of %2$s' ), number_format( $percent_used ), $space ); ?></strong>
 	<?php
 }
 
@@ -673,22 +592,13 @@ function choose_primary_blog() {
 	<?php if ( in_array( get_site_option( 'registration' ), array( 'all', 'blog' ) ) ) : ?>
 		<tr>
 			<th scope="row" colspan="2" class="th-full">
-				<a href="<?php echo apply_filters( 'wp_signup_location', network_home_url( 'wp-signup.php' ) ); ?>"><?php _e( 'Create a New Site' ); ?></a>
+				<a href="<?php echo apply_filters( 'wp_signup_location', network_site_url( 'wp-signup.php' ) ); ?>"><?php _e( 'Create a New Site' ); ?></a>
 			</th>
 		</tr>
 	<?php endif; ?>
 	</table>
 	<?php
 }
-
-function ms_deprecated_blogs_file() {
-	if ( ! is_super_admin() )
-		return;
-	if ( ! file_exists( WP_CONTENT_DIR . '/blogs.php' ) )
-		return;
-	echo '<div class="update-nag">' . sprintf( __( 'The <code>%1$s</code> file is deprecated. Please remove it and update your server rewrite rules to use <code>%2$s</code> instead.' ), 'wp-content/blogs.php', 'wp-includes/ms-files.php' ) . '</div>';
-}
-add_action( 'network_admin_notices', 'ms_deprecated_blogs_file' );
 
 /**
  * Grants super admin privileges.
@@ -778,7 +688,6 @@ function _thickbox_path_admin_subfolder() {
 <script type="text/javascript">
 //<![CDATA[
 var tb_pathToImage = "../../wp-includes/js/thickbox/loadingAnimation.gif";
-var tb_closeImage = "../../wp-includes/js/thickbox/tb-close.png";
 //]]>
 </script>
 <?php

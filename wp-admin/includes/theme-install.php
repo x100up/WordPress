@@ -30,7 +30,7 @@ $theme_field_defaults = array( 'description' => true, 'sections' => false, 'test
  */
 function install_themes_feature_list( ) {
 	if ( !$cache = get_transient( 'wporg_theme_feature_list' ) )
-		set_transient( 'wporg_theme_feature_list', array( ), 10800);
+		set_transient( 'wporg_theme_feature_list', array(), 3 * HOUR_IN_SECONDS );
 
 	if ( $cache )
 		return $cache;
@@ -39,7 +39,7 @@ function install_themes_feature_list( ) {
 	if ( is_wp_error( $feature_list ) )
 		return $features;
 
-	set_transient( 'wporg_theme_feature_list', $feature_list, 10800 );
+	set_transient( 'wporg_theme_feature_list', $feature_list, 3 * HOUR_IN_SECONDS );
 
 	return $feature_list;
 }
@@ -134,10 +134,10 @@ add_action('install_themes_dashboard', 'install_themes_dashboard');
 
 function install_themes_upload($page = 1) {
 ?>
-<h4><?php _e('Install a theme in .zip format') ?></h4>
-<p class="install-help"><?php _e('If you have a theme in a .zip format, you may install it by uploading it here.') ?></p>
-<form method="post" enctype="multipart/form-data" action="<?php echo self_admin_url('update.php?action=upload-theme') ?>">
-	<?php wp_nonce_field( 'theme-upload') ?>
+<h4><?php _e('Install a theme in .zip format'); ?></h4>
+<p class="install-help"><?php _e('If you have a theme in a .zip format, you may install it by uploading it here.'); ?></p>
+<form method="post" enctype="multipart/form-data" class="wp-upload-form" action="<?php echo self_admin_url('update.php?action=upload-theme'); ?>">
+	<?php wp_nonce_field( 'theme-upload'); ?>
 	<input type="file" name="themezip" />
 	<?php submit_button( __( 'Install Now' ), 'button', 'install-theme-submit', false ); ?>
 </form>
