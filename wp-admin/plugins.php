@@ -30,6 +30,11 @@ if ( $action ) {
 			if ( ! current_user_can('activate_plugins') )
 				wp_die(__('You do not have sufficient permissions to activate plugins for this site.'));
 
+			if ( is_multisite() && ! is_network_admin() && is_network_only_plugin( $plugin ) ) {
+				wp_redirect( self_admin_url("plugins.php?plugin_status=$status&paged=$page&s=$s") );
+				exit;
+			}
+
 			check_admin_referer('activate-plugin_' . $plugin);
 
 			$result = activate_plugin($plugin, self_admin_url('plugins.php?error=true&plugin=' . $plugin), is_network_admin() );
@@ -65,10 +70,17 @@ if ( $action ) {
 			$plugins = isset( $_POST['checked'] ) ? (array) $_POST['checked'] : array();
 
 			// Only activate plugins which are not already active.
-			$check = is_network_admin() ? 'is_plugin_active_for_network' : 'is_plugin_active';
-			foreach ( $plugins as $i => $plugin )
-				if ( $check( $plugin ) )
-					unset( $plugins[ $i ] );
+			if ( is_network_admin() ) {
+				foreach ( $plugins as $i => $plugin ) {
+					if ( is_plugin_active_for_network( $plugin ) )
+						unset( $plugins[ $i ] );
+				}
+			} else {
+				foreach ( $plugins as $i => $plugin ) {
+					if ( is_plugin_active( $plugin ) || is_network_only_plugin( $plugin ) )
+						unset( $plugins[ $i ] );
+				}
+			}
 
 			if ( empty($plugins) ) {
 				wp_redirect( self_admin_url("plugins.php?plugin_status=$status&paged=$page&s=$s") );

@@ -41,6 +41,7 @@ final class WP_Theme implements ArrayAccess {
 		'default'      => 'WordPress Default',
 		'twentyten'    => 'Twenty Ten',
 		'twentyeleven' => 'Twenty Eleven',
+		'twentytwelve' => 'Twenty Twelve',
 	);
 
 	/**
@@ -253,6 +254,7 @@ final class WP_Theme implements ArrayAccess {
 				// Parent theme is missing.
 				$this->errors = new WP_Error( 'theme_no_parent', sprintf( __( 'The parent theme is missing. Please install the "%s" parent theme.' ), $this->template ) );
 				$this->cache_add( 'theme', array( 'headers' => $this->headers, 'errors' => $this->errors, 'stylesheet' => $this->stylesheet, 'template' => $this->template ) );
+				$this->parent = new WP_Theme( $this->template, $this->theme_root, $this );
 				return;
 			}
 		}
@@ -794,7 +796,7 @@ final class WP_Theme implements ArrayAccess {
 	 * @return string URL to the stylesheet directory.
 	 */
 	public function get_stylesheet_directory_uri() {
-		return $this->get_theme_root_uri() . '/' . $this->stylesheet;
+		return $this->get_theme_root_uri() . '/' . str_replace( '%2F', '/', rawurlencode( $this->stylesheet ) );
 	}
 
 	/**
@@ -814,7 +816,7 @@ final class WP_Theme implements ArrayAccess {
 		else
 			$theme_root_uri = $this->get_theme_root_uri();
 
-		return $theme_root . '/' . $this->template;
+		return $theme_root_uri . '/' . str_replace( '%2F', '/', rawurlencode( $this->template ) );
 	}
 
 	/**
@@ -1071,7 +1073,8 @@ final class WP_Theme implements ArrayAccess {
 	 * @return array Array of stylesheet names.
 	 */
 	public static function get_allowed( $blog_id = null ) {
-		return self::get_allowed_on_network() + self::get_allowed_on_site( $blog_id );
+		$network = (array) apply_filters( 'allowed_themes', self::get_allowed_on_network() );
+		return $network + self::get_allowed_on_site( $blog_id );
 	}
 
 	/**
@@ -1101,7 +1104,7 @@ final class WP_Theme implements ArrayAccess {
 	public static function get_allowed_on_site( $blog_id = null ) {
 		static $allowed_themes = array();
 
-		if ( ! $blog_id )
+		if ( ! $blog_id || ! is_multisite() )
 			$blog_id = get_current_blog_id();
 
 		if ( isset( $allowed_themes[ $blog_id ] ) )

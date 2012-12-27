@@ -32,9 +32,8 @@ wp_check_php_mysql_versions();
 @ini_set( 'magic_quotes_runtime', 0 );
 @ini_set( 'magic_quotes_sybase',  0 );
 
-// Set default timezone in PHP 5.
-if ( function_exists( 'date_default_timezone_set' ) )
-	date_default_timezone_set( 'UTC' );
+// WordPress calculates offsets from UTC.
+date_default_timezone_set( 'UTC' );
 
 // Turn register_globals off.
 wp_unregister_GLOBALS();
@@ -135,6 +134,7 @@ require( ABSPATH . WPINC . '/taxonomy.php' );
 require( ABSPATH . WPINC . '/update.php' );
 require( ABSPATH . WPINC . '/canonical.php' );
 require( ABSPATH . WPINC . '/shortcodes.php' );
+require( ABSPATH . WPINC . '/class-wp-embed.php' );
 require( ABSPATH . WPINC . '/media.php' );
 require( ABSPATH . WPINC . '/http.php' );
 require( ABSPATH . WPINC . '/class-http.php' );
@@ -229,7 +229,7 @@ $wp_the_query = new WP_Query();
  * @global object $wp_query
  * @since 1.5.0
  */
-$wp_query =& $wp_the_query;
+$wp_query = $wp_the_query;
 
 /**
  * Holds the WordPress Rewrite object for creating pretty URLs

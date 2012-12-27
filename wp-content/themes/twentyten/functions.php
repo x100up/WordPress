@@ -224,7 +224,8 @@ endif;
  * @since Twenty Ten 1.0
  */
 function twentyten_page_menu_args( $args ) {
-	$args['show_home'] = true;
+	if ( ! isset( $args['show_home'] ) )
+		$args['show_home'] = true;
 	return $args;
 }
 add_filter( 'wp_page_menu_args', 'twentyten_page_menu_args' );
@@ -243,6 +244,7 @@ function twentyten_excerpt_length( $length ) {
 }
 add_filter( 'excerpt_length', 'twentyten_excerpt_length' );
 
+if ( ! function_exists( 'twentyten_continue_reading_link' ) ) :
 /**
  * Returns a "Continue Reading" link for excerpts
  *
@@ -252,6 +254,7 @@ add_filter( 'excerpt_length', 'twentyten_excerpt_length' );
 function twentyten_continue_reading_link() {
 	return ' <a href="'. get_permalink() . '">' . __( 'Continue reading <span class="meta-nav">&rarr;</span>', 'twentyten' ) . '</a>';
 }
+endif;
 
 /**
  * Replaces "[...]" (appended to automatically generated excerpts) with an ellipsis and twentyten_continue_reading_link().

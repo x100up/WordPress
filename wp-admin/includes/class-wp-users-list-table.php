@@ -12,17 +12,17 @@ class WP_Users_List_Table extends WP_List_Table {
 	var $site_id;
 	var $is_site_users;
 
-	function __construct() {
-		$screen = get_current_screen();
-		$this->is_site_users = 'site-users-network' == $screen->id;
+	function __construct( $args = array() ) {
+		parent::__construct( array(
+			'singular' => 'user',
+			'plural'   => 'users',
+			'screen'   => isset( $args['screen'] ) ? $args['screen'] : null,
+		) );
+
+		$this->is_site_users = 'site-users-network' == $this->screen->id;
 
 		if ( $this->is_site_users )
 			$this->site_id = isset( $_REQUEST['id'] ) ? intval( $_REQUEST['id'] ) : 0;
-
-		parent::__construct( array(
-			'singular' => 'user',
-			'plural'   => 'users'
-		) );
 	}
 
 	function ajax_user_can() {
@@ -35,7 +35,7 @@ class WP_Users_List_Table extends WP_List_Table {
 	function prepare_items() {
 		global $role, $usersearch;
 
-		$usersearch = isset( $_REQUEST['s'] ) ? $_REQUEST['s'] : '';
+		$usersearch = isset( $_REQUEST['s'] ) ? trim( $_REQUEST['s'] ) : '';
 
 		$role = isset( $_REQUEST['role'] ) ? $_REQUEST['role'] : '';
 
@@ -136,18 +136,20 @@ class WP_Users_List_Table extends WP_List_Table {
 	function extra_tablenav( $which ) {
 		if ( 'top' != $which )
 			return;
-		if ( ! current_user_can( 'promote_users' ) )
-			return;
-?>
+	?>
 	<div class="alignleft actions">
+		<?php if ( current_user_can( 'promote_users' ) ) : ?>
 		<label class="screen-reader-text" for="new_role"><?php _e( 'Change role to&hellip;' ) ?></label>
 		<select name="new_role" id="new_role">
 			<option value=''><?php _e( 'Change role to&hellip;' ) ?></option>
 			<?php wp_dropdown_roles(); ?>
 		</select>
-		<?php submit_button( __( 'Change' ), 'secondary', 'changeit', false ); ?>
-	</div>
-<?php
+	<?php
+			submit_button( __( 'Change' ), 'button', 'changeit', false );
+		endif;
+
+		do_action( 'restrict_manage_users' );
+		echo '</div>';
 	}
 
 	function current_action() {
@@ -191,11 +193,19 @@ class WP_Users_List_Table extends WP_List_Table {
 		if ( ! $this->is_site_users )
 			$post_counts = count_many_users_posts( array_keys( $this->items ) );
 
+		$editable_roles = array_keys( get_editable_roles() );
+
 		$style = '';
 		foreach ( $this->items as $userid => $user_object ) {
-			$role = reset( $user_object->roles );
+			if ( count( $user_object->roles ) <= 1 ) {
+				$role = reset( $user_object->roles );
+			} elseif ( $roles = array_intersect( array_values( $user_object->roles ), $editable_roles ) ) {
+				$role = reset( $roles );
+			} else {
+				$role = reset( $user_object->roles );
+			}
 
-			if ( is_multisite() && empty( $role ) )
+			if ( is_multisite() && empty( $user_object->allcaps ) )
 				continue;
 
 			$style = ( ' class="alternate"' == $style ) ? '' : ' class="alternate"';

@@ -28,11 +28,11 @@ function post_submit_meta_box($post) {
 <div id="minor-publishing-actions">
 <div id="save-action">
 <?php if ( 'publish' != $post->post_status && 'future' != $post->post_status && 'pending' != $post->post_status ) { ?>
-<input <?php if ( 'private' == $post->post_status ) { ?>style="display:none"<?php } ?> type="submit" name="save" id="save-post" value="<?php esc_attr_e('Save Draft'); ?>" class="button button-highlighted" />
+<input <?php if ( 'private' == $post->post_status ) { ?>style="display:none"<?php } ?> type="submit" name="save" id="save-post" value="<?php esc_attr_e('Save Draft'); ?>" class="button" />
 <?php } elseif ( 'pending' == $post->post_status && $can_publish ) { ?>
-<input type="submit" name="save" id="save-post" value="<?php esc_attr_e('Save as Pending'); ?>" class="button button-highlighted" />
+<input type="submit" name="save" id="save-post" value="<?php esc_attr_e('Save as Pending'); ?>" class="button" />
 <?php } ?>
-<img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" class="ajax-loading" id="draft-ajax-loading" alt="" />
+<span class="spinner"></span>
 </div>
 <?php if ( $post_type_object->public ) : ?>
 <div id="preview-action">
@@ -41,9 +41,7 @@ if ( 'publish' == $post->post_status ) {
 	$preview_link = esc_url( get_permalink( $post->ID ) );
 	$preview_button = __( 'Preview Changes' );
 } else {
-	$preview_link = get_permalink( $post->ID );
-	if ( is_ssl() )
-		$preview_link = str_replace( 'http://', 'https://', $preview_link );
+	$preview_link = set_url_scheme( get_permalink( $post->ID ) );
 	$preview_link = esc_url( apply_filters( 'preview_post_link', add_query_arg( 'preview', 'true', $preview_link ) ) );
 	$preview_button = __( 'Preview' );
 }
@@ -53,7 +51,7 @@ if ( 'publish' == $post->post_status ) {
 </div>
 <?php endif; // public post type ?>
 <div class="clear"></div>
-</div><?php // /minor-publishing-actions ?>
+</div><!-- #minor-publishing-actions -->
 
 <div id="misc-publishing-actions">
 
@@ -105,7 +103,7 @@ switch ( $post->post_status ) {
 </div>
 
 <?php } ?>
-</div><?php // /misc-pub-section ?>
+</div><!-- .misc-pub-section -->
 
 <div class="misc-pub-section" id="visibility">
 <?php _e('Visibility:'); ?> <span id="post-visibility-display"><?php
@@ -150,7 +148,7 @@ echo esc_html( $visibility_trans ); ?></span>
 </div>
 <?php } ?>
 
-</div><?php // /misc-pub-section ?>
+</div><!-- .misc-pub-section -->
 
 <?php
 // translators: Publish box date format, see http://php.net/date
@@ -202,30 +200,96 @@ if ( current_user_can( "delete_post", $post->ID ) ) {
 </div>
 
 <div id="publishing-action">
-<img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" class="ajax-loading" id="ajax-loading" alt="" />
+<span class="spinner"></span>
 <?php
 if ( !in_array( $post->post_status, array('publish', 'future', 'private') ) || 0 == $post->ID ) {
 	if ( $can_publish ) :
 		if ( !empty($post->post_date_gmt) && time() < strtotime( $post->post_date_gmt . ' +0000' ) ) : ?>
 		<input name="original_publish" type="hidden" id="original_publish" value="<?php esc_attr_e('Schedule') ?>" />
-		<?php submit_button( __( 'Schedule' ), 'primary', 'publish', false, array( 'accesskey' => 'p' ) ); ?>
+		<?php submit_button( __( 'Schedule' ), 'primary button-large', 'publish', false, array( 'accesskey' => 'p' ) ); ?>
 <?php	else : ?>
 		<input name="original_publish" type="hidden" id="original_publish" value="<?php esc_attr_e('Publish') ?>" />
-		<?php submit_button( __( 'Publish' ), 'primary', 'publish', false, array( 'accesskey' => 'p' ) ); ?>
+		<?php submit_button( __( 'Publish' ), 'primary button-large', 'publish', false, array( 'accesskey' => 'p' ) ); ?>
 <?php	endif;
 	else : ?>
 		<input name="original_publish" type="hidden" id="original_publish" value="<?php esc_attr_e('Submit for Review') ?>" />
-		<?php submit_button( __( 'Submit for Review' ), 'primary', 'publish', false, array( 'accesskey' => 'p' ) ); ?>
+		<?php submit_button( __( 'Submit for Review' ), 'primary button-large', 'publish', false, array( 'accesskey' => 'p' ) ); ?>
 <?php
 	endif;
 } else { ?>
 		<input name="original_publish" type="hidden" id="original_publish" value="<?php esc_attr_e('Update') ?>" />
-		<input name="save" type="submit" class="button-primary" id="publish" accesskey="p" value="<?php esc_attr_e('Update') ?>" />
+		<input name="save" type="submit" class="button button-primary button-large" id="publish" accesskey="p" value="<?php esc_attr_e('Update') ?>" />
 <?php
 } ?>
 </div>
 <div class="clear"></div>
 </div>
+</div>
+
+<?php
+}
+
+/**
+ * Display attachment submit form fields.
+ *
+ * @since 3.5.0
+ *
+ * @param object $post
+ */
+function attachment_submit_meta_box( $post ) {
+	global $action;
+
+	$post_type = $post->post_type;
+	$post_type_object = get_post_type_object($post_type);
+	$can_publish = current_user_can($post_type_object->cap->publish_posts);
+?>
+<div class="submitbox" id="submitpost">
+
+<div id="minor-publishing">
+
+<?php // Hidden submit button early on so that the browser chooses the right button when form is submitted with Return key ?>
+<div style="display:none;">
+<?php submit_button( __( 'Save' ), 'button', 'save' ); ?>
+</div>
+
+
+<div id="misc-publishing-actions">
+	<?php
+	// translators: Publish box date format, see http://php.net/date
+	$datef = __( 'M j, Y @ G:i' );
+	$stamp = __('Uploaded on: <b>%1$s</b>');
+	$date = date_i18n( $datef, strtotime( $post->post_date ) );
+	?>
+	<div class="misc-pub-section curtime">
+		<span id="timestamp"><?php printf($stamp, $date); ?></span>
+	</div><!-- .misc-pub-section -->
+
+	<?php do_action('attachment_submitbox_misc_actions'); ?>
+</div><!-- #misc-publishing-actions -->
+<div class="clear"></div>
+</div><!-- #minor-publishing -->
+
+<div id="major-publishing-actions">
+	<div id="delete-action">
+	<?php
+	if ( current_user_can( 'delete_post', $post->ID ) )
+		if ( EMPTY_TRASH_DAYS && MEDIA_TRASH ) {
+			echo "<a class='submitdelete deletion' href='" . get_delete_post_link( $post->ID ) . "'>" . __( 'Trash' ) . "</a>";
+		} else {
+			$delete_ays = ! MEDIA_TRASH ? " onclick='return showNotice.warn();'" : '';
+			echo  "<a class='submitdelete deletion'$delete_ays href='" . get_delete_post_link( $post->ID, null, true ) . "'>" . __( 'Delete Permanently' ) . "</a>";
+		}
+	?>
+	</div>
+
+	<div id="publishing-action">
+		<span class="spinner"></span>
+		<input name="original_publish" type="hidden" id="original_publish" value="<?php esc_attr_e('Update') ?>" />
+		<input name="save" type="submit" class="button-primary button-large" id="publish" accesskey="p" value="<?php esc_attr_e('Update') ?>" />
+	</div>
+	<div class="clear"></div>
+</div><!-- #major-publishing-actions -->
+
 </div>
 
 <?php
@@ -335,7 +399,7 @@ function post_categories_meta_box( $post, $box ) {
             $name = ( $taxonomy == 'category' ) ? 'post_category' : 'tax_input[' . $taxonomy . ']';
             echo "<input type='hidden' name='{$name}[]' value='0' />"; // Allows for an empty term set to be sent. 0 is an invalid Term ID and will be ignored by empty() checks.
             ?>
-			<ul id="<?php echo $taxonomy; ?>checklist" class="list:<?php echo $taxonomy?> categorychecklist form-no-clear">
+			<ul id="<?php echo $taxonomy; ?>checklist" data-wp-lists="list:<?php echo $taxonomy?>" class="categorychecklist form-no-clear">
 				<?php wp_terms_checklist($post->ID, array( 'taxonomy' => $taxonomy, 'popular_cats' => $popular_ids ) ) ?>
 			</ul>
 		</div>
@@ -356,7 +420,7 @@ function post_categories_meta_box( $post, $box ) {
 						<?php echo $tax->labels->parent_item_colon; ?>
 					</label>
 					<?php wp_dropdown_categories( array( 'taxonomy' => $taxonomy, 'hide_empty' => 0, 'name' => 'new'.$taxonomy.'_parent', 'orderby' => 'name', 'hierarchical' => 1, 'show_option_none' => '&mdash; ' . $tax->labels->parent_item . ' &mdash;' ) ); ?>
-					<input type="button" id="<?php echo $taxonomy; ?>-add-submit" class="add:<?php echo $taxonomy ?>checklist:<?php echo $taxonomy ?>-add button category-add-submit" value="<?php echo esc_attr( $tax->labels->add_new_item ); ?>" />
+					<input type="button" id="<?php echo $taxonomy; ?>-add-submit" data-wp-lists="add:<?php echo $taxonomy ?>checklist:<?php echo $taxonomy ?>-add" class="button category-add-submit" value="<?php echo esc_attr( $tax->labels->add_new_item ); ?>" />
 					<?php wp_nonce_field( 'add-'.$taxonomy, '_ajax_nonce-add-'.$taxonomy, false ); ?>
 					<span id="<?php echo $taxonomy; ?>-ajax-response"></span>
 				</p>
@@ -468,15 +532,15 @@ function post_comment_meta_box_thead($result) {
  *
  * @param object $post
  */
-function post_comment_meta_box($post) {
-	global $wpdb, $post_ID;
+function post_comment_meta_box( $post ) {
+	global $wpdb;
 
 	wp_nonce_field( 'get-comments', 'add_comment_nonce', false );
 	?>
-	<p class="hide-if-no-js" id="add-new-comment"><a href="#commentstatusdiv" onclick="commentReply.addcomment(<?php echo $post_ID; ?>);return false;"><?php _e('Add comment'); ?></a></p>
+	<p class="hide-if-no-js" id="add-new-comment"><a href="#commentstatusdiv" onclick="commentReply.addcomment(<?php echo $post->ID; ?>);return false;"><?php _e('Add comment'); ?></a></p>
 	<?php
 
-	$total = get_comments( array( 'post_id' => $post_ID, 'number' => 1, 'count' => true ) );
+	$total = get_comments( array( 'post_id' => $post->ID, 'number' => 1, 'count' => true ) );
 	$wp_list_table = _get_list_table('WP_Post_Comments_List_Table');
 	$wp_list_table->display( true );
 
@@ -491,7 +555,7 @@ function post_comment_meta_box($post) {
 		}
 
 		?>
-		<p class="hide-if-no-js" id="show-comments"><a href="#commentstatusdiv" onclick="commentsBox.get(<?php echo $total; ?>);return false;"><?php _e('Show comments'); ?></a> <img class="waiting" style="display:none;" src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" alt="" /></p>
+		<p class="hide-if-no-js" id="show-comments"><a href="#commentstatusdiv" onclick="commentsBox.get(<?php echo $total; ?>);return false;"><?php _e('Show comments'); ?></a> <span class="spinner"></span></p>
 		<?php
 	}
 
@@ -638,9 +702,9 @@ if ( !empty($_GET['action']) && 'edit' == $_GET['action'] && current_user_can('m
 
 <div id="publishing-action">
 <?php if ( !empty($link->link_id) ) { ?>
-	<input name="save" type="submit" class="button-primary" id="publish" accesskey="p" value="<?php esc_attr_e('Update Link') ?>" />
+	<input name="save" type="submit" class="button-large button-primary" id="publish" accesskey="p" value="<?php esc_attr_e('Update Link') ?>" />
 <?php } else { ?>
-	<input name="save" type="submit" class="button-primary" id="publish" accesskey="p" value="<?php esc_attr_e('Add Link') ?>" />
+	<input name="save" type="submit" class="button-large button-primary" id="publish" accesskey="p" value="<?php esc_attr_e('Add Link') ?>" />
 <?php } ?>
 </div>
 <div class="clear"></div>
@@ -667,7 +731,7 @@ function link_categories_meta_box($link) {
 	</ul>
 
 	<div id="categories-all" class="tabs-panel">
-		<ul id="categorychecklist" class="list:category categorychecklist form-no-clear">
+		<ul id="categorychecklist" data-wp-lists="list:category" class="categorychecklist form-no-clear">
 			<?php
 			if ( isset($link->link_id) )
 				wp_link_category_checklist($link->link_id);
@@ -688,7 +752,7 @@ function link_categories_meta_box($link) {
 		<p id="link-category-add" class="wp-hidden-child">
 			<label class="screen-reader-text" for="newcat"><?php _e( '+ Add New Category' ); ?></label>
 			<input type="text" name="newcat" id="newcat" class="form-required form-input-tip" value="<?php esc_attr_e( 'New category name' ); ?>" aria-required="true" />
-			<input type="button" id="category-add-submit" class="add:categorychecklist:linkcategorydiv button" value="<?php esc_attr_e( 'Add' ); ?>" />
+			<input type="button" id="link-category-add-submit" data-wp-lists="add:categorychecklist:link-category-add" class="button" value="<?php esc_attr_e( 'Add' ); ?>" />
 			<?php wp_nonce_field( 'add-link-category', '_ajax_nonce', false ); ?>
 			<span id="category-ajax-response"></span>
 		</p>
@@ -912,8 +976,7 @@ function link_advanced_meta_box($link) {
  *
  * @since 2.9.0
  */
-function post_thumbnail_meta_box() {
-	global $post;
+function post_thumbnail_meta_box( $post ) {
 	$thumbnail_id = get_post_meta( $post->ID, '_thumbnail_id', true );
-	echo _wp_post_thumbnail_html( $thumbnail_id );
+	echo _wp_post_thumbnail_html( $thumbnail_id, $post->ID );
 }
